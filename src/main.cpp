@@ -13,7 +13,8 @@ const char *wifipw = "***REMOVED***";
 struct tm timeInfo;
 time_t prevTime = 0;
 
-String stringToDisplay = "000000";
+long digits = 0; // number to display, negative means only 4 digits are shown (second positions are blank)
+
 unsigned int symbolArray[10] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1}; // 0 to 9
 
 void blinkError()
@@ -78,10 +79,15 @@ void startWifi()
 
 void displayDigits()
 {
+  bool isDate = false;
+  if (digits < 0)
+  { // we have a date, don't display the seconds positions
+    isDate = true;
+    digits = -digits;
+  }
+
   digitalWrite(PIN_OE, LOW); // allow data input (Transparent mode)
   unsigned long var32 = 0;
-
-  long digits = stringToDisplay.toInt();
 
   //-------- REG 1 -----------------------------------------------
   var32 = 0; // 32 bits all init to 0
@@ -90,10 +96,16 @@ void displayDigits()
   //        s2         s1         m2         m1         h2         h1
   // -- 0987654321 0987654321 0987654321 0987654321 0987654321 0987654321
 
-  var32 |= (unsigned long)(symbolArray[digits % 10]) << 20; // s2
+  if (!isDate)
+  {
+    var32 |= (unsigned long)(symbolArray[digits % 10]) << 20; // s2
+  }
   digits /= 10;
 
-  var32 |= (unsigned long)(symbolArray[digits % 10]) << 10; // s1
+  if (!isDate)
+  {
+    var32 |= (unsigned long)(symbolArray[digits % 10]) << 10; // s1
+  }
   digits /= 10;
 
   var32 |= (unsigned long)(symbolArray[digits % 10]); // m2
@@ -124,6 +136,27 @@ void displayDigits()
   digitalWrite(PIN_OE, HIGH); // latching data
 }
 
+void displayTime()
+{
+  // 123456
+  digits = 0;
+  digits += timeInfo.tm_hour * 10000;
+  digits += timeInfo.tm_min * 100;
+  digits += timeInfo.tm_sec;
+  displayDigits();
+}
+
+void displayDate()
+{
+  // 123456
+  digits = 0;
+  digits += timeInfo.tm_mday * 10000;
+  digits += timeInfo.tm_mon * 100;
+  // year is not displayed so we mark it as negative
+  digits *= -1;
+  displayDigits();
+}
+
 void setup()
 {
   pinMode(PIN_LED, OUTPUT);
@@ -132,7 +165,7 @@ void setup()
   Serial.begin(115200);
   Serial.setDebugOutput(true);
 
-  SPI.begin();
+  SPI.begin(PIN_CLK, -1, PIN_DIN, -1);
   SPI.setDataMode(SPI_MODE2);
   SPI.setClockDivider(SPI_CLOCK_DIV8);
 
