@@ -15,7 +15,7 @@ time_t prevTime = 0;
 
 long digits = 0; // number to display, negative means only 4 digits are shown (second positions are blank)
 
-unsigned int symbolArray[10] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1}; // 0 to 9
+unsigned int symbolArray[10] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256}; // 0 to 9
 
 void blinkError()
 {
@@ -127,7 +127,7 @@ void displayDigits()
   var32 |= (unsigned long)(symbolArray[digits % 10]) << 10; // h2
   digits = digits / 10;
 
-  var32 |= (unsigned long)symbolArray[digits % 10]; // h1
+  var32 |= (unsigned long)(symbolArray[digits % 10]); // h1
   digits = digits / 10;
 
   SPI.transfer(var32 >> 24);
@@ -153,7 +153,7 @@ void displayDate()
   // 123456
   digits = 0;
   digits += timeInfo.tm_mday * 10000;
-  digits += timeInfo.tm_mon * 100;
+  digits += (timeInfo.tm_mon + 1) * 100;
   // year is not displayed so we mark it as negative
   digits *= -1;
   displayDigits();
