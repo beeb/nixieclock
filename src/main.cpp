@@ -6,6 +6,8 @@
 #define PIN_CLK 14
 #define PIN_OE 27
 #define SHIFT_LSB_FIRST false
+#define BUFSIZE 12
+#define PRESCALER 15
 
 const char *ssid = "***REMOVED***";
 const char *wifipw = "***REMOVED***";
@@ -13,6 +15,9 @@ const char *wifipw = "***REMOVED***";
 int maxDigits = 6;
 String driverSetupStr;
 hw_timer_t *ESP32timer = NULL;
+unsigned long intCounter = 0;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+bool displayON = true;
 
 byte digitPins[6][10] = {
     {130, 121, 122, 123, 124, 125, 126, 127, 128, 129}, // sec  1
@@ -39,6 +44,13 @@ uint32_t DRAM_ATTR time2 = 2000;
 uint32_t DRAM_ATTR offTime = 2000;
 uint32_t DRAM_ATTR brightness = 0;
 uint32_t DRAM_ATTR PWMtimeBrightness;
+
+byte DRAM_ATTR digit[BUFSIZE];
+byte DRAM_ATTR newDigit[BUFSIZE];
+byte DRAM_ATTR oldDigit[BUFSIZE];
+boolean DRAM_ATTR digitDP[BUFSIZE]; // actual value to put to display
+boolean digitsOnly = true;          // only 0..9 numbers are possible to display?
+byte DRAM_ATTR animMask[BUFSIZE];   // 0 = no animation mask is used
 
 void blinkError()
 {
@@ -203,7 +215,7 @@ void IRAM_ATTR writeDisplay()
   if (timer < 500)
     timer = 500; // safety only...
 
-  if ((state == 3) || (!radarON) || (brightness == 0))
+  if ((state == 3) || (brightness == 0))
   {                            // OFF state, blank digit
     digitalWrite(PIN_OE, LOW); // OFF
     state = 0;
@@ -301,7 +313,7 @@ void writeDisplaySingle()
     }
   } // end for i
 
-  brightness = displayON ? prm.dayBright : prm.nightBright;
+  brightness = displayON ? dayBright : nightBright;
   if (brightness > MAXBRIGHTNESS)
     brightness = MAXBRIGHTNESS; // only for safety
 
