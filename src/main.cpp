@@ -163,6 +163,7 @@ void setup()
 {
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_OE, OUTPUT);
+  digitalWrite(PIN_OE, HIGH);
 
   Serial.begin(9600);
   Serial.setDebugOutput(true);
