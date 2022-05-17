@@ -8,16 +8,27 @@
 #define SHIFT_LSB_FIRST false
 #define BUFSIZE 12
 #define PRESCALER 15
+#define MAXBRIGHTNESS 10
+#define MAXIMUM_LUX 100
 
 const char *ssid = "***REMOVED***";
 const char *wifipw = "***REMOVED***";
 
+struct tm timeInfo;
 int maxDigits = 6;
 String driverSetupStr;
 hw_timer_t *ESP32timer = NULL;
 unsigned long intCounter = 0;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 bool displayON = true;
+int lx = 0;
+int prevSecond = 0;
+int prevMinute = 0;
+int prevHour = 0;
+boolean showDate = false;
+boolean showClock = false;
+bool initProtectionTimer = false;
+time_t protectTimer;
 
 byte digitPins[6][10] = {
     {130, 121, 122, 123, 124, 125, 126, 127, 128, 129}, // sec  1
@@ -52,6 +63,9 @@ boolean DRAM_ATTR digitDP[BUFSIZE]; // actual value to put to display
 boolean digitsOnly = true;          // only 0..9 numbers are possible to display?
 byte DRAM_ATTR animMask[BUFSIZE];   // 0 = no animation mask is used
 
+byte dayBright = MAXBRIGHTNESS;
+byte nightBright = 5;
+
 void blinkError()
 {
   for (int i = 0; i < 5; i++)
@@ -72,11 +86,9 @@ void setTimezone(String timezone)
 
 void initTime(String timezone)
 {
-  struct tm timeinfo;
-
   Serial.println("Setting up time");
   configTime(0, 0, "pool.ntp.org"); // First connect to NTP server, with 0 TZ offset
-  if (!getLocalTime(&timeinfo))
+  if (!getLocalTime(&timeInfo))
   {
     Serial.println("  Failed to obtain time");
     blinkError();
@@ -89,14 +101,13 @@ void initTime(String timezone)
 
 void printLocalTime()
 {
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo))
+  if (!getLocalTime(&timeInfo))
   {
     Serial.println("Failed to obtain time 1");
     blinkError();
     return;
   }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
+  Serial.println(&timeInfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
 }
 
 void startWifi()
@@ -144,33 +155,6 @@ void clearTubes()
 {
   shift(0);
   shift(0);
-}
-
-void startTimer()
-{ // ESP_INTR_FLAG_IRAM
-  //  https://techtutorialsx.com/2017/10/07/esp32-arduino-timer-interrupts/
-  ESP32timer = timerBegin(0, PRESCALER, true); // set prescaler to 80 -> 1MHz signal, true = edge generated signal
-  timerAttachInterrupt(ESP32timer, &writeDisplay, true);
-  timerAlarmWrite(ESP32timer, 1000, true); // 100millisec, no repeat
-  timerAlarmEnable(ESP32timer);
-}
-
-void setup_pins()
-{
-  Serial.println("Setup pins -  HV5122 Nixie driver...");
-  Serial.print("- CLK   : GPIO");
-  Serial.println(PIN_CLK);
-  Serial.print("- DATAIN: GPIO");
-  Serial.println(PIN_DIN);
-  Serial.print("- OUTPUT_ENABLE: GPIO");
-  Serial.println(PIN_OE);
-  pinMode(PIN_CLK, OUTPUT);
-  pinMode(PIN_DIN, OUTPUT);
-  pinMode(PIN_OE, OUTPUT);
-  digitalWrite(PIN_CLK, HIGH);
-  digitalWrite(PIN_OE, LOW);
-  clearTubes();
-  startTimer();
 }
 
 void IRAM_ATTR writeDisplay()
@@ -229,6 +213,33 @@ void IRAM_ATTR writeDisplay()
   timerAlarmWrite(ESP32timer, timer, true);
   timerAlarmEnable(ESP32timer);
   interrupts();
+}
+
+void startTimer()
+{
+  //  https://techtutorialsx.com/2017/10/07/esp32-arduino-timer-interrupts/
+  ESP32timer = timerBegin(0, PRESCALER, true); // set prescaler to 80 -> 1MHz signal, true = edge generated signal
+  timerAttachInterrupt(ESP32timer, &writeDisplay, true);
+  timerAlarmWrite(ESP32timer, 1000, true); // 100millisec, no repeat
+  timerAlarmEnable(ESP32timer);
+}
+
+void setup_pins()
+{
+  Serial.println("Setup pins -  HV5122 Nixie driver...");
+  Serial.print("- CLK   : GPIO");
+  Serial.println(PIN_CLK);
+  Serial.print("- DATAIN: GPIO");
+  Serial.println(PIN_DIN);
+  Serial.print("- OUTPUT_ENABLE: GPIO");
+  Serial.println(PIN_OE);
+  pinMode(PIN_CLK, OUTPUT);
+  pinMode(PIN_DIN, OUTPUT);
+  pinMode(PIN_OE, OUTPUT);
+  digitalWrite(PIN_CLK, HIGH);
+  digitalWrite(PIN_OE, LOW);
+  clearTubes();
+  startTimer();
 }
 
 void writeDisplaySingle()
@@ -317,7 +328,7 @@ void writeDisplaySingle()
   if (brightness > MAXBRIGHTNESS)
     brightness = MAXBRIGHTNESS; // only for safety
 
-  if (autoBrightness && displayON)
+  if (displayON)
     PWMtimeBrightness = max(PWM_min, (PWMrefresh * lx) / MAXIMUM_LUX);
   else
     PWMtimeBrightness = max(PWM_min, (PWMrefresh * brightness) / MAXBRIGHTNESS);
@@ -343,6 +354,81 @@ void writeDisplaySingle()
   oldBitBuffer1 = ob1;
 }
 
+void displayDate()
+{
+  newDigit[5] = timeInfo.tm_mday / 10;
+  newDigit[4] = timeInfo.tm_mday % 10;
+  newDigit[3] = timeInfo.tm_mon / 10;
+  newDigit[2] = timeInfo.tm_mon % 10;
+  newDigit[1] = (timeInfo.tm_year % 100) / 10;
+  newDigit[0] = timeInfo.tm_year % 10;
+}
+
+void displayTime6()
+{
+  for (int i = 0; i < maxDigits; i++)
+  {
+    digitDP[i] = false;
+  }
+  digitDP[4] = true;
+  digitDP[2] = true;
+  if (showDate)
+  {
+    displayDate();
+  }
+  else
+  {
+    showClock = true;
+    newDigit[5] = timeInfo.tm_hour / 10;
+    newDigit[4] = timeInfo.tm_hour % 10;
+    newDigit[3] = timeInfo.tm_min / 10;
+    newDigit[2] = timeInfo.tm_min % 10;
+    newDigit[1] = timeInfo.tm_sec / 10;
+    newDigit[0] = timeInfo.tm_sec % 10;
+  }
+}
+
+void timeProgram()
+{
+  static unsigned long lastRun = 0;
+  if ((millis() - lastRun) < 200)
+    return;
+  lastRun = millis();
+  if (!getLocalTime(&timeInfo))
+  {
+    Serial.println("Failed to obtain time");
+    blinkError();
+    return;
+  }
+  if (timeInfo.tm_sec != prevSecond || timeInfo.tm_min != prevMinute || timeInfo.tm_hour != prevHour)
+  { // Update time every second
+    prevSecond = timeInfo.tm_sec;
+    prevMinute = timeInfo.tm_min;
+    prevHour = timeInfo.tm_hour;
+    showDate = (timeInfo.tm_sec >= 50) && (timeInfo.tm_sec < 55);
+    displayTime6();
+    changeDigit();
+    printDigits(0);
+    if (!initProtectionTimer && (timeInfo.tm_min == 0)) // we never ran protection yet
+    {
+      protectTimer = 0; // Ensures protection logic will be immediately triggered
+      initProtectionTimer = true;
+    }
+
+    if ((mktime(&timeInfo) - protectTimer) >= 60 * 15)
+    {
+      protectTimer = mktime(&timeInfo);
+      // The current time can drift slightly relative to the protectTimer when NIST time is updated
+      // Need to make a small adjustment to the timer to ensure it is triggered at the minute change
+      protectTimer -= ((timeInfo.tm_sec + 30) % 60 - 30);
+      if (millis() > 50000)
+      {
+        newCathodeProtect(maxDigits * 1500, random(3) - 1); // dont play in the first 50sec
+      }
+    }
+  }
+}
+
 void setup()
 {
   pinMode(PIN_LED, OUTPUT);
@@ -358,9 +444,5 @@ void setup()
 
 void loop()
 {
-  while (1)
-  {
-    delay(1000);
-    printLocalTime();
-  }
+  timeProgram();
 }
