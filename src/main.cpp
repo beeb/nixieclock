@@ -54,11 +54,11 @@ void printLocalTime()
 {
   if (!getLocalTime(&timeInfo))
   {
-    Serial.println("Failed to obtain time 1");
+    Serial.println("Failed to obtain time");
     blinkError();
     return;
   }
-  Serial.println(&timeInfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
+  Serial.println(&timeInfo, "%A, %B %d %Y %H:%M:%S zone %Z %z");
 }
 
 void startWifi()
@@ -79,6 +79,8 @@ void startWifi()
 
 void displayDigits()
 {
+  Serial.print("Displaying digits: ");
+  Serial.println(digits);
   bool isDate = false;
   if (digits < 0)
   { // we have a date, don't display the seconds positions
@@ -162,7 +164,7 @@ void setup()
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_OE, OUTPUT);
 
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.setDebugOutput(true);
 
   SPI.begin(PIN_CLK, -1, PIN_DIN, -1);
