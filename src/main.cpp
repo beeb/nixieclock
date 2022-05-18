@@ -69,13 +69,15 @@ void startWifi()
 
 void IRAM_ATTR displayDigits()
 {
+  long digitsCopy;
+  memcpy(&digitsCopy, &digits, sizeof(long));
   Serial.print("Displaying digits: ");
-  Serial.println(digits);
+  Serial.println(digitsCopy);
   bool isDate = false;
-  if (digits < 0)
+  if (digitsCopy < 0)
   { // we have a date, don't display the seconds positions
     isDate = true;
-    digits = -digits;
+    digitsCopy = -digitsCopy;
   }
 
   digitalWrite(PIN_OE, LOW); // allow data input (Transparent mode)
@@ -90,18 +92,18 @@ void IRAM_ATTR displayDigits()
 
   if (!isDate)
   {
-    var32 |= (unsigned long)(symbolArray[digits % 10]) << 20; // s2
+    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 20; // s2
   }
-  digits /= 10;
+  digitsCopy /= 10;
 
   if (!isDate)
   {
-    var32 |= (unsigned long)(symbolArray[digits % 10]) << 10; // s1
+    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 10; // s1
   }
-  digits /= 10;
+  digitsCopy /= 10;
 
-  var32 |= (unsigned long)(symbolArray[digits % 10]); // m2
-  digits /= 10;
+  var32 |= (unsigned long)(symbolArray[digitsCopy % 10]); // m2
+  digitsCopy /= 10;
 
   SPI.transfer(var32 >> 24);
   SPI.transfer(var32 >> 16);
@@ -111,14 +113,14 @@ void IRAM_ATTR displayDigits()
   //-------- REG 0 -----------------------------------------------
   var32 = 0;
 
-  var32 |= (unsigned long)(symbolArray[digits % 10]) << 20; // m1
-  digits = digits / 10;
+  var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 20; // m1
+  digitsCopy /= 10;
 
-  var32 |= (unsigned long)(symbolArray[digits % 10]) << 10; // h2
-  digits = digits / 10;
+  var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 10; // h2
+  digitsCopy /= 10;
 
-  var32 |= (unsigned long)(symbolArray[digits % 10]); // h1
-  digits = digits / 10;
+  var32 |= (unsigned long)(symbolArray[digitsCopy % 10]); // h1
+  digitsCopy /= 10;
 
   SPI.transfer(var32 >> 24);
   SPI.transfer(var32 >> 16);
