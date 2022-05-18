@@ -151,6 +151,17 @@ void displayDate()
   displayDigits();
 }
 
+void ACP()
+{
+  digits = 0;
+  for (int i = 0; i < 10; i++)
+  {
+    displayDigits();
+    delay(2000);
+    digits += 111111;
+  }
+}
+
 void setup()
 {
   pinMode(PIN_LED, OUTPUT);
@@ -188,6 +199,10 @@ void loop()
     if ((timeInfo.tm_sec >= 50) && (timeInfo.tm_sec < 55))
     {
       displayDate();
+    }
+    else if (timeInfo.tm_min % 10 == 7 && timeInfo.tm_sec == 15)
+    {
+      ACP(); // blocking
     }
     else
     {
