@@ -67,7 +67,7 @@ void startWifi()
   Serial.println(WiFi.RSSI());
 }
 
-void displayDigits()
+void IRAM_ATTR displayDigits()
 {
   Serial.print("Displaying digits: ");
   Serial.println(digits);
