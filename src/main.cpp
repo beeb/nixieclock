@@ -6,7 +6,7 @@
 #define PIN_DIN 13
 #define PIN_CLK 14
 #define PIN_OE 27
-#define ON_TIME_US 1000
+#define ON_TIME_US 500
 
 const char *ssid = "***REMOVED***";
 const char *wifipw = "***REMOVED***";
