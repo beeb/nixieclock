@@ -14,6 +14,10 @@ struct tm timeInfo;
 time_t prevTime = 0;
 unsigned long lastRefresh = 0;
 
+bool displayEnabled = false;
+bool runningACP = false;
+TaskHandle_t mainTask;
+
 long digits = 0; // number to display, negative means only 4 digits are shown (second positions are blank)
 
 unsigned int symbolArray[10] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256}; // 0 to 9
@@ -71,100 +75,108 @@ void startWifi()
 // also call displayDigits permamently in the loop
 // maybe actually call displayDigits from second core?
 // https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
-void IRAM_ATTR displayDigits()
+void IRAM_ATTR displayDigits(void *pvParameters)
 {
-  long digitsCopy;
-  memcpy(&digitsCopy, &digits, sizeof(long));
-  Serial.print("Displaying digits: ");
-  Serial.println(digitsCopy);
-  bool isDate = false;
-  if (digitsCopy < 0)
-  { // we have a date, don't display the seconds positions
-    isDate = true;
-    digitsCopy = -digitsCopy;
-  }
-
-  digitalWrite(PIN_OE, LOW); // allow data input (transparent mode, all outputs are LOW)
-  unsigned long var32 = 0;
-
-  //-------- REG 1 -----------------------------------------------
-  var32 = 0; // 32 bits all init to 0
-
-  // 00 0000000000 0000000000 0000000000 0000000000 0000000000 0000000000
-  //        s2         s1         m2         m1         h2         h1
-  // -- 0987654321 0987654321 0987654321 0987654321 0987654321 0987654321
-
-  if (!isDate)
+  Serial.print("Task1 running on core ");
+  Serial.println(xPortGetCoreID());
+  for (;;)
   {
-    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 20; // s2
+    delay(10);
+    if (!displayEnabled)
+    {
+      continue;
+    }
+    long digitsCopy;
+    memcpy(&digitsCopy, &digits, sizeof(long));
+    bool isDate = false;
+    if (digitsCopy < 0)
+    { // we have a date, don't display the seconds positions
+      isDate = true;
+      digitsCopy = -digitsCopy;
+    }
+
+    digitalWrite(PIN_OE, LOW); // allow data input (transparent mode, all outputs are LOW)
+    unsigned long var32 = 0;
+
+    //-------- REG 1 -----------------------------------------------
+    var32 = 0; // 32 bits all init to 0
+
+    // 00 0000000000 0000000000 0000000000 0000000000 0000000000 0000000000
+    //        s2         s1         m2         m1         h2         h1
+    // -- 0987654321 0987654321 0987654321 0987654321 0987654321 0987654321
+
+    if (!isDate)
+    {
+      var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 20; // s2
+    }
+    digitsCopy /= 10;
+
+    if (!isDate)
+    {
+      var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 10; // s1
+    }
+    digitsCopy /= 10;
+
+    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]); // m2
+    digitsCopy /= 10;
+
+    SPI.transfer(var32 >> 24);
+    SPI.transfer(var32 >> 16);
+    SPI.transfer(var32 >> 8);
+    SPI.transfer(var32);
+
+    //-------- REG 0 -----------------------------------------------
+    var32 = 0;
+
+    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 20; // m1
+    digitsCopy /= 10;
+
+    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 10; // h2
+    digitsCopy /= 10;
+
+    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]); // h1
+    digitsCopy /= 10;
+
+    SPI.transfer(var32 >> 24);
+    SPI.transfer(var32 >> 16);
+    SPI.transfer(var32 >> 8);
+    SPI.transfer(var32);
+
+    delay(10);                  // dim brightness by forcing longer off time
+    digitalWrite(PIN_OE, HIGH); // latching data (enables HV outputs according to registers)
   }
-  digitsCopy /= 10;
-
-  if (!isDate)
-  {
-    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 10; // s1
-  }
-  digitsCopy /= 10;
-
-  var32 |= (unsigned long)(symbolArray[digitsCopy % 10]); // m2
-  digitsCopy /= 10;
-
-  SPI.transfer(var32 >> 24);
-  SPI.transfer(var32 >> 16);
-  SPI.transfer(var32 >> 8);
-  SPI.transfer(var32);
-
-  //-------- REG 0 -----------------------------------------------
-  var32 = 0;
-
-  var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 20; // m1
-  digitsCopy /= 10;
-
-  var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 10; // h2
-  digitsCopy /= 10;
-
-  var32 |= (unsigned long)(symbolArray[digitsCopy % 10]); // h1
-  digitsCopy /= 10;
-
-  SPI.transfer(var32 >> 24);
-  SPI.transfer(var32 >> 16);
-  SPI.transfer(var32 >> 8);
-  SPI.transfer(var32);
-
-  digitalWrite(PIN_OE, HIGH); // latching data (enables HV outputs according to registers)
 }
 
 void displayTime()
 {
-  // 123456
+  Serial.println("Setting time");
   digits = 0;
   digits += timeInfo.tm_hour * 10000;
   digits += timeInfo.tm_min * 100;
   digits += timeInfo.tm_sec;
-  displayDigits();
 }
 
 void displayDate()
 {
-  // 123456
+  Serial.println("Setting date");
   digits = 0;
   digits += timeInfo.tm_mday * 10000;
   digits += (timeInfo.tm_mon + 1) * 100; // month is 0-11, we need to add 1
   // year is not displayed so we mark it as negative
   digits *= -1;
-  displayDigits();
 }
 
 void ACP()
 {
   // cycle through digits to avoid cathode poisoning
+  runningACP = true;
   digits = 0;
   for (int i = 0; i < 10; i++)
   {
-    displayDigits();
     delay(2000);
     digits += 111111;
   }
+  runningACP = false;
 }
 
 void setup()
@@ -182,6 +194,8 @@ void setup()
   startWifi();
 
   initTime("CET-1CEST,M3.5.0,M10.5.0/3");
+
+  xTaskCreatePinnedToCore(displayDigits, "DisplayLoop", 10000, NULL, 1, &mainTask, 1);
 }
 
 void loop()
@@ -203,14 +217,14 @@ void loop()
     prevTime = nowTime;
     if ((timeInfo.tm_sec >= 50) && (timeInfo.tm_sec < 55))
     {
-      displayDate();
+      displayDate(); // sets digits to display
     }
     else if (timeInfo.tm_min % 10 == 7 && timeInfo.tm_sec == 15) // at xx:x7:15
     {
       // during day time we do anti-cathode poisoning only every 20 minutes
       if ((timeInfo.tm_hour >= 5 || timeInfo.tm_hour < 23) && (timeInfo.tm_min / 10) % 2 == 0)
       {
-        displayTime();
+        displayTime(); // sets digits to display
       }
       else
       {
@@ -219,7 +233,11 @@ void loop()
     }
     else
     {
-      displayTime();
+      displayTime(); // sets digits to display
     }
+  }
+  if (!displayEnabled)
+  {
+    displayEnabled = true;
   }
 }
