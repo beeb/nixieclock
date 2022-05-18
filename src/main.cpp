@@ -229,9 +229,13 @@ void loop()
     {
       brightness = 10;
     }
-    else
+    else if (timeInfo.tm_hour < 8 || timeInfo.tm_hour > 20)
     {
       brightness = 75;
+    }
+    else
+    {
+      brightness = 100;
     }
 
     if ((timeInfo.tm_sec >= 50) && (timeInfo.tm_sec < 55))
