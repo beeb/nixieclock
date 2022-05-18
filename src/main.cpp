@@ -223,6 +223,17 @@ void loop()
   if (nowTime != prevTime)
   { // Update time every second
     prevTime = nowTime;
+
+    // brightness control
+    if (timeInfo.tm_hour < 6 || timeInfo.tm_hour > 21)
+    {
+      brightness = 10;
+    }
+    else
+    {
+      brightness = 75;
+    }
+
     if ((timeInfo.tm_sec >= 50) && (timeInfo.tm_sec < 55))
     {
       displayDate(); // sets digits to display
