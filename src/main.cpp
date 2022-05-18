@@ -225,11 +225,11 @@ void loop()
     prevTime = nowTime;
 
     // brightness control
-    if (timeInfo.tm_hour < 6 || timeInfo.tm_hour > 21)
+    if (timeInfo.tm_hour < 6 || timeInfo.tm_hour >= 22)
     {
       brightness = 10;
     }
-    else if (timeInfo.tm_hour < 8 || timeInfo.tm_hour > 20)
+    else if (timeInfo.tm_hour < 8 || timeInfo.tm_hour >= 20)
     {
       brightness = 75;
     }
