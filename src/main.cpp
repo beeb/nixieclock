@@ -201,13 +201,21 @@ void loop()
     {
       displayDate();
     }
-    else if (timeInfo.tm_min % 10 == 7 && timeInfo.tm_sec == 15)
+    else if (timeInfo.tm_min % 10 == 7 && timeInfo.tm_sec == 15) // at xx:x7:15
     {
-      ACP(); // blocking
+      // during day time we do anti-cathode poisoning only every 20 minutes
+      if ((timeInfo.tm_hour >= 5 || timeInfo.tm_hour < 23) && (timeInfo.tm_min / 10) % 2 == 0)
+      {
+        displayTime();
+      }
+      else
+      {
+        ACP(); // blocking
+      }
     }
-    else
-    {
-      displayTime();
-    }
+  }
+  else
+  {
+    displayTime();
   }
 }
