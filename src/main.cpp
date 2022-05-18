@@ -70,6 +70,7 @@ void startWifi()
 // idea for brightness: add a delay parameter to the function and pause after the PIN_OE goes low for some time
 // also call displayDigits permamently in the loop
 // maybe actually call displayDigits from second core?
+// https://randomnerdtutorials.com/esp32-dual-core-arduino-ide/
 void IRAM_ATTR displayDigits()
 {
   long digitsCopy;
