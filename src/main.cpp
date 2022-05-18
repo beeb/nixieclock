@@ -171,7 +171,7 @@ void setup()
 {
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_OE, OUTPUT);
-  digitalWrite(PIN_OE, HIGH); // disable HV5122 input
+  digitalWrite(PIN_OE, LOW); // force all off
 
   Serial.begin(9600);
 
@@ -217,9 +217,9 @@ void loop()
         ACP(); // blocking
       }
     }
-  }
-  else
-  {
-    displayTime();
+    else
+    {
+      displayTime();
+    }
   }
 }
