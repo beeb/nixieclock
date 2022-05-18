@@ -12,6 +12,7 @@ const char *wifipw = "***REMOVED***";
 
 struct tm timeInfo;
 time_t prevTime = 0;
+unsigned long lastRefresh = 0;
 
 long digits = 0; // number to display, negative means only 4 digits are shown (second positions are blank)
 
@@ -167,6 +168,11 @@ void setup()
 
 void loop()
 {
+  if (millis() - lastRefresh < 200)
+  {
+    return;
+  }
+  lastRefresh = millis();
   if (!getLocalTime(&timeInfo))
   {
     Serial.println("Failed to obtain time");
@@ -186,5 +192,4 @@ void loop()
       displayTime();
     }
   }
-  delay(200);
 }
