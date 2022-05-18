@@ -6,6 +6,7 @@
 #define PIN_DIN 13
 #define PIN_CLK 14
 #define PIN_OE 27
+#define CONFIG_LWIP_SNTP_UPDATE_DELAY 300000 // 5 minutes NTP refresh interval
 
 const char *ssid = "***REMOVED***";
 const char *wifipw = "***REMOVED***";
