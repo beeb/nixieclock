@@ -158,7 +158,6 @@ void IRAM_ATTR displayDigits(void *pvParameters)
 
 void displayTime()
 {
-  Serial.println("Setting time");
   digits = 0;
   digits += timeInfo.tm_hour * 10000;
   digits += timeInfo.tm_min * 100;
@@ -167,7 +166,6 @@ void displayTime()
 
 void displayDate()
 {
-  Serial.println("Setting date");
   digits = 0;
   digits += timeInfo.tm_mday * 10000;
   digits += (timeInfo.tm_mon + 1) * 100; // month is 0-11, we need to add 1
