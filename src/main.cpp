@@ -145,7 +145,8 @@ void IRAM_ATTR displayDigits(void *pvParameters)
 
     if (!runningACP)
     {
-      delay((1000 - 10 * brightness) / brightness); // dim brightness by forcing longer off time
+      // dim brightness by forcing longer off time
+      delay((1000 - 10 * min(brightness, (uint)100)) / min(brightness, (uint)100));
     }
     digitalWrite(PIN_OE, HIGH); // latching data (enables HV outputs according to registers)
     if (runningACP)
