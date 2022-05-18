@@ -18,7 +18,8 @@ bool displayEnabled = false;
 bool runningACP = false;
 TaskHandle_t mainTask;
 
-long digits = 0; // number to display, negative means only 4 digits are shown (second positions are blank)
+long digits = 0;               // number to display, negative means only 4 digits are shown (second positions are blank)
+unsigned int brightness = 100; // percentage
 
 unsigned int symbolArray[10] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256}; // 0 to 9
 
@@ -142,8 +143,15 @@ void IRAM_ATTR displayDigits(void *pvParameters)
     SPI.transfer(var32 >> 8);
     SPI.transfer(var32);
 
-    delay(10);                  // dim brightness by forcing longer off time
+    if (!runningACP)
+    {
+      delay((1000 - 10 * brightness) / brightness); // dim brightness by forcing longer off time
+    }
     digitalWrite(PIN_OE, HIGH); // latching data (enables HV outputs according to registers)
+    if (runningACP)
+    {
+      delay(100); // force longer on-time when performing ACP routine
+    }
   }
 }
 
