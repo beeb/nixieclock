@@ -67,6 +67,8 @@ void startWifi()
   Serial.println(WiFi.RSSI());
 }
 
+// idea for brightness: add a delay parameter to the function and pause after the PIN_OE goes low for some time
+// also call displayDigits permamently in the loop
 void IRAM_ATTR displayDigits()
 {
   long digitsCopy;
@@ -80,7 +82,7 @@ void IRAM_ATTR displayDigits()
     digitsCopy = -digitsCopy;
   }
 
-  digitalWrite(PIN_OE, LOW); // allow data input (Transparent mode)
+  digitalWrite(PIN_OE, LOW); // allow data input (transparent mode, all outputs are LOW)
   unsigned long var32 = 0;
 
   //-------- REG 1 -----------------------------------------------
@@ -127,7 +129,7 @@ void IRAM_ATTR displayDigits()
   SPI.transfer(var32 >> 8);
   SPI.transfer(var32);
 
-  digitalWrite(PIN_OE, HIGH); // latching data
+  digitalWrite(PIN_OE, HIGH); // latching data (enables HV outputs according to registers)
 }
 
 void displayTime()
