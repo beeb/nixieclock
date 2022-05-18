@@ -6,6 +6,7 @@
 #define PIN_DIN 13
 #define PIN_CLK 14
 #define PIN_OE 27
+#define ON_TIME_US 1000
 
 const char *ssid = "***REMOVED***";
 const char *wifipw = "***REMOVED***";
@@ -82,7 +83,7 @@ void IRAM_ATTR displayDigits(void *pvParameters)
   Serial.println(xPortGetCoreID());
   for (;;)
   {
-    delay(10);
+    delayMicroseconds(ON_TIME_US);
     if (!displayEnabled)
     {
       continue;
@@ -146,7 +147,7 @@ void IRAM_ATTR displayDigits(void *pvParameters)
     if (!runningACP)
     {
       // dim brightness by forcing longer off time
-      delay((1000 - 10 * min(brightness, (uint)100)) / min(brightness, (uint)100));
+      delayMicroseconds((ON_TIME_US * 100 - ON_TIME_US * min(brightness, (uint)100)) / min(brightness, (uint)100));
     }
     digitalWrite(PIN_OE, HIGH); // latching data (enables HV outputs according to registers)
     if (runningACP)
