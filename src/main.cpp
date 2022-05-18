@@ -6,7 +6,6 @@
 #define PIN_DIN 13
 #define PIN_CLK 14
 #define PIN_OE 27
-#define CONFIG_LWIP_SNTP_UPDATE_DELAY 300000 // 5 minutes NTP refresh interval
 
 const char *ssid = "***REMOVED***";
 const char *wifipw = "***REMOVED***";
@@ -20,12 +19,12 @@ unsigned int symbolArray[10] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256}; // 0 to 
 
 void blinkError()
 {
-  for (int i = 0; i < 5; i++)
+  for (int i = 0; i < 10; i++)
   {
     digitalWrite(PIN_LED, HIGH);
-    delay(300);
+    delay(100);
     digitalWrite(PIN_LED, LOW);
-    delay(300);
+    delay(100);
   }
 }
 
@@ -49,17 +48,6 @@ void initTime(String timezone)
   Serial.println("  Got the time from NTP");
   // Now we can set the real timezone
   setTimezone(timezone);
-}
-
-void printLocalTime()
-{
-  if (!getLocalTime(&timeInfo))
-  {
-    Serial.println("Failed to obtain time");
-    blinkError();
-    return;
-  }
-  Serial.println(&timeInfo, "%A, %B %d %Y %H:%M:%S zone %Z %z");
 }
 
 void startWifi()
@@ -154,7 +142,7 @@ void displayDate()
   // 123456
   digits = 0;
   digits += timeInfo.tm_mday * 10000;
-  digits += (timeInfo.tm_mon + 1) * 100;
+  digits += (timeInfo.tm_mon + 1) * 100; // month is 0-11, we need to add 1
   // year is not displayed so we mark it as negative
   digits *= -1;
   displayDigits();
@@ -164,14 +152,13 @@ void setup()
 {
   pinMode(PIN_LED, OUTPUT);
   pinMode(PIN_OE, OUTPUT);
-  digitalWrite(PIN_OE, HIGH);
+  digitalWrite(PIN_OE, HIGH); // disable HV5122 input
 
   Serial.begin(9600);
-  Serial.setDebugOutput(true);
 
-  SPI.begin(PIN_CLK, -1, PIN_DIN, -1);
+  SPI.begin(PIN_CLK, -1, PIN_DIN, -1); // we only use clock and MOSI
   SPI.setDataMode(SPI_MODE2);
-  SPI.setClockDivider(SPI_CLOCK_DIV8);
+  SPI.setClockDivider(SPI_CLOCK_DIV8); // SCK = 16MHz/8 = 2MHz
 
   startWifi();
 
