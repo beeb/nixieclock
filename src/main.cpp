@@ -153,6 +153,7 @@ void displayDate()
 
 void ACP()
 {
+  // cycle through digits to avoid cathode poisoning
   digits = 0;
   for (int i = 0; i < 10; i++)
   {
