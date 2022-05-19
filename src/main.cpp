@@ -6,7 +6,8 @@
 #define PIN_DIN 13
 #define PIN_CLK 14
 #define PIN_OE 27
-#define ON_TIME_US 500
+#define ON_TIME_US 1000 // 1000
+#define ADAPTIVE_BRIGHTNESS 1
 
 const char *ssid = "***REMOVED***";
 const char *wifipw = "***REMOVED***";
@@ -144,7 +145,7 @@ void IRAM_ATTR displayDigits(void *pvParameters)
     SPI.transfer(var32 >> 8);
     SPI.transfer(var32);
 
-    if (!runningACP)
+    if (ADAPTIVE_BRIGHTNESS && !runningACP)
     {
       // dim brightness by forcing longer off time
       delayMicroseconds((ON_TIME_US * 100 - ON_TIME_US * min(brightness, (uint)100)) / min(brightness, (uint)100));
@@ -208,7 +209,7 @@ void setup()
 
 void loop()
 {
-  if (millis() - lastRefresh < 200)
+  if (millis() - lastRefresh < 100)
   {
     return;
   }
