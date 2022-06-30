@@ -6,7 +6,7 @@
 #define PIN_DIN 13
 #define PIN_CLK 14
 #define PIN_OE 27
-#define ON_TIME_US 1000 // 1000
+#define ON_TIME_US 1000
 #define ADAPTIVE_BRIGHTNESS 1
 
 const char *ssid = "***REMOVED***";
@@ -108,7 +108,7 @@ void IRAM_ATTR displayDigits(void *pvParameters)
     //        s2         s1         m2         m1         h2         h1
     // -- 0987654321 0987654321 0987654321 0987654321 0987654321 0987654321
 
-    if (!isDate)
+    if (!isDate && !runningACP)
     {
       var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 20; // s2
     }
@@ -120,7 +120,10 @@ void IRAM_ATTR displayDigits(void *pvParameters)
     }
     digitsCopy /= 10;
 
-    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]); // m2
+    if (!runningACP)
+    {
+      var32 |= (unsigned long)(symbolArray[digitsCopy % 10]); // m2
+    }
     digitsCopy /= 10;
 
     SPI.transfer(var32 >> 24);
@@ -134,7 +137,10 @@ void IRAM_ATTR displayDigits(void *pvParameters)
     var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 20; // m1
     digitsCopy /= 10;
 
-    var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 10; // h2
+    if (!runningACP)
+    {
+      var32 |= (unsigned long)(symbolArray[digitsCopy % 10]) << 10; // h2
+    }
     digitsCopy /= 10;
 
     var32 |= (unsigned long)(symbolArray[digitsCopy % 10]); // h1
@@ -179,12 +185,22 @@ void ACP()
 {
   // cycle through digits to avoid cathode poisoning
   runningACP = true;
-  digits = 0;
-  for (int i = 0; i < 10; i++)
-  {
-    delay(2000);
-    digits += 111111;
-  }
+  digits = 306060;
+  delay(5000);
+  digits = 407070;
+  delay(5000);
+  digits = 508080;
+  delay(5000);
+  digits = 609090;
+  delay(5000);
+  digits = 706060;
+  delay(5000);
+  digits = 807070;
+  delay(5000);
+  digits = 908080;
+  delay(5000);
+  digits = 309090;
+  delay(5000);
   runningACP = false;
 }
 
