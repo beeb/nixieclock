@@ -1,6 +1,7 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include "time.h"
+#include <EasyButton.h>
 
 #define PIN_LED 26
 #define PIN_DIN 13
@@ -8,6 +9,7 @@
 #define PIN_OE 27
 #define ON_TIME_US 1000
 #define ADAPTIVE_BRIGHTNESS 1
+#define BUTTON_PIN 0
 
 const char *ssid = "***REMOVED***";
 const char *wifipw = "***REMOVED***";
@@ -18,12 +20,18 @@ unsigned long lastRefresh = 0;
 
 bool displayEnabled = false;
 bool runningACP = false;
+bool runningManualACP = false;
 TaskHandle_t mainTask;
 
 long digits = 0;               // number to display, negative means only 4 digits are shown (second positions are blank)
+// which digit to show in manual ACP mode
+// 0-9 is first tube on the left, 10-19 second tube, etc.
+byte singleDigit = 0;
 unsigned int brightness = 100; // percentage
 
 unsigned int symbolArray[10] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256}; // 0 to 9
+
+EasyButton button(BUTTON_PIN);
 
 void blinkError()
 {
@@ -89,6 +97,39 @@ void IRAM_ATTR displayDigits(void *pvParameters)
     {
       continue;
     }
+
+    if (runningManualACP)
+    {
+      digitalWrite(PIN_OE, LOW); // allow data input (transparent mode, all outputs are LOW)
+      unsigned long var32 = 0; // 32 bits all init to 0
+      if (singleDigit < 30) {
+         SPI.transfer(var32 >> 24);
+         SPI.transfer(var32 >> 16);
+         SPI.transfer(var32 >> 8);
+         SPI.transfer(var32);
+         var32 |= symbolArray[singleDigit % 10] << singleDigit - (singleDigit % 10);
+         SPI.transfer(var32 >> 24);
+         SPI.transfer(var32 >> 16);
+         SPI.transfer(var32 >> 8);
+         SPI.transfer(var32);
+      } else {
+         var32 |= symbolArray[singleDigit % 10] << singleDigit - (singleDigit % 10) - 30;
+         SPI.transfer(var32 >> 24);
+         SPI.transfer(var32 >> 16);
+         SPI.transfer(var32 >> 8);
+         SPI.transfer(var32);
+         var32 = 0;
+         SPI.transfer(var32 >> 24);
+         SPI.transfer(var32 >> 16);
+         SPI.transfer(var32 >> 8);
+         SPI.transfer(var32);
+      }
+      digitalWrite(PIN_OE, HIGH); // latching data (enables HV outputs according to registers)
+      delay(200); // force longer on-time when performing ACP routine
+      continue;
+    }
+
+    
     long digitsCopy;
     memcpy(&digitsCopy, &digits, sizeof(long));
     bool isDate = false;
@@ -104,9 +145,9 @@ void IRAM_ATTR displayDigits(void *pvParameters)
     //-------- REG 1 -----------------------------------------------
     var32 = 0; // 32 bits all init to 0
 
-    // 00 0000000000 0000000000 0000000000 0000000000 0000000000 0000000000
-    //        s2         s1         m2         m1         h2         h1
-    // -- 0987654321 0987654321 0987654321 0987654321 0987654321 0987654321
+    // 00 0000000000 0000000000 0000000000 00 0000000000 0000000000 0000000000
+    //        s2         s1         m2            m1         h2         h1
+    // -- 0987654321 0987654321 0987654321 -- 0987654321 0987654321 0987654321
 
     if (!isDate && !runningACP)
     {
@@ -204,6 +245,23 @@ void ACP()
   runningACP = false;
 }
 
+void onButtonPress()
+{
+  if (!runningManualACP) {
+    runningManualACP = true;
+    return;
+  }
+  singleDigit = (singleDigit + 1) % 60;
+}
+
+void onButtonLongPress()
+{
+  if (runningManualACP) {
+    runningManualACP = false;
+    singleDigit = 0;
+  }
+}
+
 void setup()
 {
   pinMode(PIN_LED, OUTPUT);
@@ -221,10 +279,15 @@ void setup()
   initTime("CET-1CEST,M3.5.0,M10.5.0/3");
 
   xTaskCreatePinnedToCore(displayDigits, "DisplayLoop", 10000, NULL, 1, &mainTask, 1);
+
+  button.begin();
+  button.onPressed(onButtonPress);
+  button.onPressedFor(2000, onButtonLongPress);
 }
 
 void loop()
 {
+  button.read();
   if (millis() - lastRefresh < 100)
   {
     return;
