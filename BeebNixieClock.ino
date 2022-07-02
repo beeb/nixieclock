@@ -11,8 +11,8 @@
 #define ADAPTIVE_BRIGHTNESS 1
 #define BUTTON_PIN 0
 
-const char *ssid = "***REMOVED***";
-const char *wifipw = "***REMOVED***";
+const char *ssid = "YOUR_WIFI";
+const char *wifipw = "yourpassword";
 
 struct tm timeInfo;
 time_t prevTime = 0;
