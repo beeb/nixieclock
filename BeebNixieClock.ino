@@ -11,8 +11,8 @@
 #define ADAPTIVE_BRIGHTNESS 1
 #define BUTTON_PIN 0
 
-const char *ssid = "YOUR_WIFI";
-const char *wifipw = "yourpassword";
+const char *ssid = "YOUR_SSID";
+const char *wifipw = "YOUR_PW";
 
 struct tm timeInfo;
 time_t prevTime = 0;
@@ -23,7 +23,7 @@ bool runningACP = false;
 bool runningManualACP = false;
 TaskHandle_t mainTask;
 
-long digits = 0;               // number to display, negative means only 4 digits are shown (second positions are blank)
+long digits = 0; // number to display, negative means only 4 digits are shown (second positions are blank)
 // which digit to show in manual ACP mode
 // 0-9 is first tube on the left, 10-19 second tube, etc.
 byte singleDigit = 0;
@@ -54,6 +54,11 @@ void setTimezone(String timezone)
 void initTime(String timezone)
 {
   Serial.println("Setting up time");
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("No internet, skipping NTP setup");
+    return;
+  }
   configTime(0, 0, "pool.ntp.org"); // First connect to NTP server, with 0 TZ offset
   if (!getLocalTime(&timeInfo))
   {
@@ -70,16 +75,29 @@ void startWifi()
 {
   WiFi.begin(ssid, wifipw);
   Serial.println("Connecting Wifi");
+  unsigned long startConnect = millis();
   while (WiFi.status() != WL_CONNECTED)
   {
+    if (millis() - startConnect > 30000)
+    {
+      break;
+    }
     Serial.print(".");
     digitalWrite(PIN_LED, HIGH);
     delay(100);
     digitalWrite(PIN_LED, LOW);
     delay(500);
   }
-  Serial.print("Wifi RSSI=");
-  Serial.println(WiFi.RSSI());
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("Failed to connect to WiFi");
+    blinkError();
+  }
+  else
+  {
+    Serial.print("Wifi RSSI=");
+    Serial.println(WiFi.RSSI());
+  }
 }
 
 // idea for brightness: add a delay parameter to the function and pause after the PIN_OE goes low for some time
@@ -101,35 +119,37 @@ void IRAM_ATTR displayDigits(void *pvParameters)
     if (runningManualACP)
     {
       digitalWrite(PIN_OE, LOW); // allow data input (transparent mode, all outputs are LOW)
-      unsigned long var32 = 0; // 32 bits all init to 0
-      if (singleDigit < 30) {
-         SPI.transfer(var32 >> 24);
-         SPI.transfer(var32 >> 16);
-         SPI.transfer(var32 >> 8);
-         SPI.transfer(var32);
-         var32 |= symbolArray[singleDigit % 10] << singleDigit - (singleDigit % 10);
-         SPI.transfer(var32 >> 24);
-         SPI.transfer(var32 >> 16);
-         SPI.transfer(var32 >> 8);
-         SPI.transfer(var32);
-      } else {
-         var32 |= symbolArray[singleDigit % 10] << singleDigit - (singleDigit % 10) - 30;
-         SPI.transfer(var32 >> 24);
-         SPI.transfer(var32 >> 16);
-         SPI.transfer(var32 >> 8);
-         SPI.transfer(var32);
-         var32 = 0;
-         SPI.transfer(var32 >> 24);
-         SPI.transfer(var32 >> 16);
-         SPI.transfer(var32 >> 8);
-         SPI.transfer(var32);
+      unsigned long var32 = 0;   // 32 bits all init to 0
+      if (singleDigit < 30)
+      {
+        SPI.transfer(var32 >> 24);
+        SPI.transfer(var32 >> 16);
+        SPI.transfer(var32 >> 8);
+        SPI.transfer(var32);
+        var32 |= symbolArray[singleDigit % 10] << singleDigit - (singleDigit % 10);
+        SPI.transfer(var32 >> 24);
+        SPI.transfer(var32 >> 16);
+        SPI.transfer(var32 >> 8);
+        SPI.transfer(var32);
+      }
+      else
+      {
+        var32 |= symbolArray[singleDigit % 10] << singleDigit - (singleDigit % 10) - 30;
+        SPI.transfer(var32 >> 24);
+        SPI.transfer(var32 >> 16);
+        SPI.transfer(var32 >> 8);
+        SPI.transfer(var32);
+        var32 = 0;
+        SPI.transfer(var32 >> 24);
+        SPI.transfer(var32 >> 16);
+        SPI.transfer(var32 >> 8);
+        SPI.transfer(var32);
       }
       digitalWrite(PIN_OE, HIGH); // latching data (enables HV outputs according to registers)
-      delay(200); // force longer on-time when performing ACP routine
+      delay(200);                 // force longer on-time when performing ACP routine
       continue;
     }
 
-    
     long digitsCopy;
     memcpy(&digitsCopy, &digits, sizeof(long));
     bool isDate = false;
@@ -227,27 +247,28 @@ void ACP()
   // cycle through digits to avoid cathode poisoning
   runningACP = true;
   digits = 306060;
-  delay(3000);
+  delay(5000);
   digits = 407070;
-  delay(3000);
+  delay(5000);
   digits = 508080;
-  delay(3000);
+  delay(5000);
   digits = 609090;
-  delay(3000);
+  delay(5000);
   digits = 706060;
-  delay(3000);
+  delay(5000);
   digits = 807070;
-  delay(3000);
+  delay(5000);
   digits = 908080;
-  delay(3000);
+  delay(5000);
   digits = 309090;
-  delay(3000);
+  delay(5000);
   runningACP = false;
 }
 
 void onButtonPress()
 {
-  if (!runningManualACP) {
+  if (!runningManualACP)
+  {
     runningManualACP = true;
     return;
   }
@@ -256,7 +277,8 @@ void onButtonPress()
 
 void onButtonLongPress()
 {
-  if (runningManualACP) {
+  if (runningManualACP)
+  {
     runningManualACP = false;
     singleDigit = 0;
   }
@@ -280,6 +302,12 @@ void setup()
 
   xTaskCreatePinnedToCore(displayDigits, "DisplayLoop", 10000, NULL, 1, &mainTask, 1);
 
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    digits = 123456; // demo mode
+    displayEnabled = true;
+  }
+
   button.begin();
   button.onPressed(onButtonPress);
   button.onPressedFor(2000, onButtonLongPress);
@@ -297,6 +325,7 @@ void loop()
   {
     Serial.println("Failed to obtain time");
     blinkError();
+    digits = (digits + random(111111, 999999)) % 1000000;
     return;
   }
   time_t nowTime = mktime(&timeInfo);
