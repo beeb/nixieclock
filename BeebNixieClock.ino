@@ -227,21 +227,21 @@ void ACP()
   // cycle through digits to avoid cathode poisoning
   runningACP = true;
   digits = 306060;
-  delay(5000);
+  delay(3000);
   digits = 407070;
-  delay(5000);
+  delay(3000);
   digits = 508080;
-  delay(5000);
+  delay(3000);
   digits = 609090;
-  delay(5000);
+  delay(3000);
   digits = 706060;
-  delay(5000);
+  delay(3000);
   digits = 807070;
-  delay(5000);
+  delay(3000);
   digits = 908080;
-  delay(5000);
+  delay(3000);
   digits = 309090;
-  delay(5000);
+  delay(3000);
   runningACP = false;
 }
 
@@ -318,21 +318,13 @@ void loop()
       brightness = 100;
     }
 
-    if ((timeInfo.tm_sec >= 50) && (timeInfo.tm_sec < 55))
+    if (timeInfo.tm_min % 10 == 9 && timeInfo.tm_sec >= 50 && timeInfo.tm_sec < 55)
     {
       displayDate(); // sets digits to display
     }
-    else if (timeInfo.tm_min % 10 == 7 && timeInfo.tm_sec == 15) // at xx:x7:15
+    else if (timeInfo.tm_min == 57 && timeInfo.tm_sec == 15) // at xx:57:15
     {
-      // during day time we do anti-cathode poisoning only every 20 minutes
-      if ((timeInfo.tm_hour >= 5 || timeInfo.tm_hour < 23) && (timeInfo.tm_min / 10) % 2 == 0)
-      {
-        displayTime(); // sets digits to display
-      }
-      else
-      {
-        ACP(); // blocking
-      }
+      ACP(); // blocking
     }
     else
     {
